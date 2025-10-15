@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Instagram Login Fix</title>
+    <script src="src/hello.polyfill.js"></script>
+    <script src="src/hello.js"></script>
+    <script src="src/modules/instagram.js"></script>
+</head>
+<body>
+    <h1>Instagram Login Fix</h1>
+    <button id="loginBtn" onclick="loginInstagram()">Login with Instagram</button>
+    <div id="result"></div>
+
+    <script>
+        // Replace with your actual Instagram client ID
+        const INSTAGRAM_CLIENT_ID = 'your_instagram_client_id_here';
+        const REDIRECT_URI = window.location.origin + '/redirect.html';
+
+        // Initialize hello.js with Instagram configuration
+        hello.init({
+            instagram: INSTAGRAM_CLIENT_ID
+        }, {
+            redirect_uri: REDIRECT_URI,
+            oauth_proxy: 'https://auth-server.herokuapp.com/proxy'
+        });
+
+        function loginInstagram() {
+            console.log('Starting Instagram login...');
+            
+            // Clear any existing auth
+            hello('instagram').logout();
+            
+            // Perform login with correct scope format
+            hello('instagram').login({
+                scope: 'basic' // Use space-separated scopes, not comma-separated
+            }).then(function(auth) {
+                console.log('Login successful:', auth);
+                
+                // Get the auth response
+                const authResponse = hello('instagram').getAuthResponse();
+                console.log('Auth response:', authResponse);
+                
+                if (authResponse && authResponse.access_token) {
+                    document.getElementById('result').innerHTML = 
+                        '<p>Login successful!</p>' +
+                        '<p>Access Token: ' + authResponse.access_token + '</p>';
+                    
+                    // Now you can make API calls
+                    getUserProfile();
+                } else {
+                    document.getElementById('result').innerHTML = 
+                        '<p>Login failed - no access token received</p>';
+                }
+                
+            }).catch(function(error) {
+                console.error('Login failed:', error);
+                document.getElementById('result').innerHTML = 
+                    '<p>Login failed: ' + (error.error ? error.error.message : error.message) + '</p>';
+            });
+        }
+
+        function getUserProfile() {
+            hello('instagram').api('me').then(function(profile) {
+                console.log('Profile:', profile);
+                document.getElementById('result').innerHTML += 
+                    '<p>Welcome ' + profile.name + '!</p>' +
+                    '<img src="' + profile.thumbnail + '" alt="Profile picture">';
+            }).catch(function(error) {
+                console.error('Profile fetch failed:', error);
+            });
+        }
+
+        // Check if user is already logged in
+        hello.on('auth.login', function(auth) {
+            console.log('User logged in:', auth);
+        });
+
+        hello.on('auth.logout', function() {
+            console.log('User logged out');
+            document.getElementById('result').innerHTML = '';
+        });
+    </script>
+</body>
+</html>
