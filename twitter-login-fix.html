@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Twitter Login Fix</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .error { color: red; }
+        .success { color: green; }
+        button { padding: 10px 20px; margin: 10px 0; }
+        #result { margin-top: 20px; padding: 10px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <h1>Twitter Login Fix</h1>
+    
+    <button id="login-btn" onclick="loginTwitter()">Login with Twitter</button>
+    <button id="test-api" onclick="testAPI()" disabled>Test API Call</button>
+    <button id="logout-btn" onclick="logoutTwitter()" disabled>Logout</button>
+    
+    <div id="result"></div>
+
+    <!-- Include hello.js and Twitter module -->
+    <script src="src/hello.polyfill.js"></script>
+    <script src="src/hello.js"></script>
+    <script src="twitter-login-fix.js"></script>
+
+    <script>
+        // Initialize hello.js with Twitter configuration
+        hello.init({
+            twitter: 'eQuyZuECKWPiv3D7E4qdg' // Default Twitter client ID
+        }, {
+            redirect_uri: 'redirect.html',
+            oauth_proxy: 'https://auth-server.herokuapp.com/proxy'
+        });
+
+        function log(message, isError = false) {
+            const result = document.getElementById('result');
+            const div = document.createElement('div');
+            div.className = isError ? 'error' : 'success';
+            div.innerHTML = typeof message === 'object' ? JSON.stringify(message, null, 2) : message;
+            result.appendChild(div);
+            console.log(message);
+        }
+
+        function updateButtons(loggedIn) {
+            document.getElementById('login-btn').disabled = loggedIn;
+            document.getElementById('test-api').disabled = !loggedIn;
+            document.getElementById('logout-btn').disabled = !loggedIn;
+        }
+
+        function loginTwitter() {
+            log('Attempting Twitter login...');
+            
+            hello('twitter').login({
+                scope: 'email'
+            }).then(function(auth) {
+                log('Login successful!');
+                log('Auth response: ' + JSON.stringify(auth, null, 2));
+                updateButtons(true);
+                
+                // Automatically test API after successful login
+                setTimeout(testAPI, 1000);
+                
+            }).catch(function(error) {
+                log('Login failed: ' + JSON.stringify(error, null, 2), true);
+                updateButtons(false);
+            });
+        }
+
+        function testAPI() {
+            log('Testing Twitter API call...');
+            
+            hello('twitter').api('me').then(function(profile) {
+                log('API call successful!');
+                log('Profile data: ' + JSON.stringify(profile, null, 2));
+                
+                // Display user info
+                if (profile.name) {
+                    const userInfo = document.createElement('div');
+                    userInfo.innerHTML = `
+                        <h3>Welcome, ${profile.name}!</h3>
+                        <p>Username: @${profile.screen_name}</p>
+                        <p>Followers: ${profile.followers_count}</p>
+                        <p>Following: ${profile.friends_count}</p>
+                        ${profile.profile_image_url ? `<img src="${profile.profile_image_url}" alt="Profile" style="width:50px;height:50px;border-radius:25px;">` : ''}
+                    `;
+                    document.getElementById('result').appendChild(userInfo);
+                }
+                
+            }).catch(function(error) {
+                log('API call failed: ' + JSON.stringify(error, null, 2), true);
+                
+                // Check auth status
+                const auth = hello.getAuthResponse('twitter');
+                log('Current auth status: ' + JSON.stringify(auth, null, 2));
+                
+                if (!auth || !auth.access_token) {
+                    log('No valid access token found. Please login again.', true);
+                    updateButtons(false);
+                }
+            });
+        }
+
+        function logoutTwitter() {
+            hello('twitter').logout().then(function() {
+                log('Logged out successfully');
+                updateButtons(false);
+                document.getElementById('result').innerHTML = '';
+            });
+        }
+
+        // Check initial login status
+        window.onload = function() {
+            const auth = hello.getAuthResponse('twitter');
+            if (auth && auth.access_token) {
+                log('Already logged in');
+                updateButtons(true);
+            }
+        };
+    </script>
+</body>
+</html>
